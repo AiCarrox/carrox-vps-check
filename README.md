@@ -27,6 +27,13 @@
 
 每个指标都标注 5 级评级:🟢 良好/正常 / 🟡 一般 / 🟠 偏弱 / 🔴 较差 / ℹ️ 信息。
 
+<details>
+<summary>📷 §1 虚拟化指纹 + §2 系统硬件 渲染示例</summary>
+
+![§1+§2](./docs/screenshots/github_1.png)
+
+</details>
+
 ---
 
 ## 快速开始
@@ -96,6 +103,27 @@ results/<hostname>_check_<YYYYMMDD_HHMM>.html   # 自包含彩色网页报告(VS
 ...
 ```
 
+<details>
+<summary>📷 §7 三网回程 + §8 fio 磁盘 + §9 网络身份 渲染示例</summary>
+
+![§7-§9](./docs/screenshots/github_3.png)
+
+</details>
+
+<details>
+<summary>📷 §10 AI 平台 + 流媒体解锁 渲染示例</summary>
+
+![§10](./docs/screenshots/github_4.png)
+
+</details>
+
+<details>
+<summary>📷 §11 globalping CN 多省三网入境延迟 渲染示例</summary>
+
+![§11](./docs/screenshots/github_5.png)
+
+</details>
+
 ---
 
 ## 系统要求
@@ -109,6 +137,13 @@ results/<hostname>_check_<YYYYMMDD_HHMM>.html   # 自包含彩色网页报告(VS
 - **内存**:< 2 GiB 内存 + < 512 MiB swap 的机器会**临时挂 1 GB swap** 给 sysbench 用,脚本结束 trap 自动卸载
 
 ---
+
+<details>
+<summary>📷 §3 资源超开 + §4 邻居宿主 + §5 嵌套虚拟化 + §6 综合等级 渲染示例</summary>
+
+![§3-§6](./docs/screenshots/github_2.png)
+
+</details>
 
 ## 评级体系
 
