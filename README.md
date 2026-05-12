@@ -31,10 +31,12 @@
 
 ## 快速开始
 
+> 默认假设以 root 运行；非 root 用户请在 `bash` 前加 `sudo`（如 `sudo bash carrox_vps_check.sh`）。
+
 ### 一键远程执行(推荐)
 
 ```bash
-sudo bash <(curl -sL https://raw.githubusercontent.com/AiCarrox/carrox-vps-check/main/carrox_vps_check.sh)
+bash <(curl -sL https://raw.githubusercontent.com/AiCarrox/carrox-vps-check/main/carrox_vps_check.sh)
 ```
 
 ### 本地执行
@@ -42,7 +44,7 @@ sudo bash <(curl -sL https://raw.githubusercontent.com/AiCarrox/carrox-vps-check
 ```bash
 git clone https://github.com/AiCarrox/carrox-vps-check.git
 cd carrox-vps-check
-sudo bash carrox_vps_check.sh
+bash carrox_vps_check.sh
 ```
 
 执行约 **5–8 分钟**(其中 §3 实时 steal 采样固定 60s、§7 三网回程约 90s、§8 fio 约 30s、§11 globalping 约 15–40s)。

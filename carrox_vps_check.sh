@@ -3,8 +3,8 @@
 # License: MIT
 # Repo: https://github.com/AiCarrox/carrox-vps-check
 # 用法:
-#   sudo bash carrox_vps_check.sh           # 一键全测
-#   sudo bash <(curl -sL https://raw.githubusercontent.com/AiCarrox/carrox-vps-check/main/carrox_vps_check.sh)
+#   bash carrox_vps_check.sh                # 一键全测（非 root 请在前面加 sudo）
+#   bash <(curl -sL https://raw.githubusercontent.com/AiCarrox/carrox-vps-check/main/carrox_vps_check.sh)
 # 输出:
 #   屏幕    : 实时进度
 #   日志    : <results>/<host>_check_<ts>.log     (含详细过程)
