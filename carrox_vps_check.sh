@@ -4,7 +4,7 @@
 # Repo: https://github.com/AiCarrox/carrox-vps-check
 # 用法:
 #   sudo bash carrox_vps_check.sh           # 一键全测
-#   bash <(curl -sL https://raw.githubusercontent.com/AiCarrox/carrox-vps-check/main/src/carrox_vps_check.sh)
+#   sudo bash <(curl -sL https://raw.githubusercontent.com/AiCarrox/carrox-vps-check/main/carrox_vps_check.sh)
 # 输出:
 #   屏幕    : 实时进度
 #   日志    : <results>/<host>_check_<ts>.log     (含详细过程)
@@ -80,7 +80,7 @@ if [ "$(id -u)" -ne 0 ]; then
     step "  ⚠️  非 root 运行，部分采集（dmidecode/dmesg）可能受限"
 fi
 
-NEED=(sysbench fio mtr-tiny dnsutils whois pciutils dmidecode util-linux procps net-tools sysstat ethtool curl)
+NEED=(sysbench fio mtr-tiny dnsutils whois pciutils dmidecode util-linux procps net-tools sysstat ethtool curl jq)
 MISSING=()
 for pkg in "${NEED[@]}"; do
     case "$pkg" in
