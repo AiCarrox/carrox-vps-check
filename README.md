@@ -132,45 +132,12 @@ results/<hostname>_check_<YYYYMMDD_HHMM>.html   # 自包含彩色网页报告(VS
 
 ---
 
-## 路线规划
-
-### v1.0.x 维护
-- bug 修复 + 多发行版兼容(CentOS / Alpine / Arch)
-- 首屏截图 + 示例报告
-
-### v1.1
-- `--json` / `--yaml` 机器可读输出(便于跨机批量对比)
-- `--quick` 快速模式(< 1 min)
-- `--no-network` 离线模式
-- yum / dnf / apk 包管理器适配
-
-### v2.0
-- 云厂商元数据自动识别(AWS / GCP / Azure / 阿里云 / 腾讯云)
-- 自包含 HTML 报告(含 chart)
-- 多机比较 dashboard
-
-详见 [PROJECT.md](PROJECT.md) 与 [CHANGELOG.md](CHANGELOG.md)。
-
----
-
 ## 贡献
 
-欢迎提 [Issues](https://github.com/AiCarrox/carrox-vps-check/issues) 反馈 bug、新机型适配、不准确的评级阈值、新的解锁/线路检测点等。
-
-PR 请尽量保持单文件 bash 风格,不引入额外依赖工具(可选依赖除外,需在 §0 自动检查并兜底)。
+欢迎提 [Issues](https://github.com/AiCarrox/carrox-vps-check/issues) 反馈 bug。
 
 ---
 
 ## License
 
 [MIT](LICENSE) © 2026 Carrox
-
----
-
-## 同类参考
-
-- [oneclickvirt/ecs](https://github.com/oneclickvirt/ecs) — 综合跑分(融合怪)
-- [NodeQuality](https://run.NodeQuality.com) — 节点质量评测
-- [bench.sh](https://bench.sh/) — 经典 VPS 性能脚本
-
-`carrox-vps-check` 与上述工具的差异:**单文件 + 强结构化报告 + emoji 评级 + 综合等级 L0–L4**,聚焦"母机超开+回程线路+解锁"三大维度的快速画像,不做带宽/磁盘极限跑分。
