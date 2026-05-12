@@ -61,9 +61,10 @@ rate()  {
 # ============== 报告头 ==============
 rpt "################################################################"
 rpt "                 VPS Quality Check Report  ${VERSION}"
-rpt "                 https://github.com/AiCarrox/carrox-vps-check"
 rpt "       报告时间：$(date '+%Y-%m-%d %H:%M:%S %Z')"
 rpt "       主机    ：${HOST_TAG}"
+rpt "       测试命令：bash <(curl -sL https://raw.githubusercontent.com/AiCarrox/carrox-vps-check/main/carrox_vps_check.sh)"
+rpt "       项目地址：https://github.com/AiCarrox/carrox-vps-check"
 rpt "################################################################"
 
 echo "================================================================"
