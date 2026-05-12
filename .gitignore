@@ -1,0 +1,25 @@
+# 体检产出物
+results/
+*.log
+*.txt
+*.html
+!CHANGELOG.txt
+!sample-report.txt
+
+# 临时 swap（脚本异常退出时可能残留）
+.vps_check_swap
+/tmp/.vps_check_swap
+
+# fio 测试文件
+test.fio
+
+# 系统垃圾
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*~

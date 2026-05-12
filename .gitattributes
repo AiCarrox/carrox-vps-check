@@ -1,0 +1,23 @@
+# Force LF for shell / config files (prevents CRLF corruption on Windows authoring + Linux execution)
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.conf      text eol=lf
+*.toml      text eol=lf
+Makefile    text eol=lf
+Dockerfile  text eol=lf
+.gitignore  text eol=lf
+.gitattributes text eol=lf
+
+# Markdown / docs - allow native line endings
+*.md        text
+
+# Binaries
+*.png       binary
+*.jpg       binary
+*.gif       binary
+*.ico       binary
+*.tar.gz    binary
+*.tgz       binary
+*.zip       binary
