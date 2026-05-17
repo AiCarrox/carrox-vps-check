@@ -14,7 +14,7 @@ set -u
 export DEBIAN_FRONTEND=noninteractive
 export LC_ALL=C
 
-VERSION="v1.0.0"
+VERSION="v1.1.0"
 HOST_TAG="${HOSTNAME:-unknown}"
 TS="$(date +%Y%m%d_%H%M)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || pwd)"
@@ -256,10 +256,176 @@ esac
 rkv "TCP 拥塞控制:" "$CC_RATE / qdisc=$QDISC"
 
 #######################################
-# §3 超开金标准
+# §3 网速测试（多节点 inbound 带宽，约 30 秒）
 #######################################
-step "§3 超开检测（CPU steal 60s + KSM + Balloon + 内存带宽）"
-rsect "§3 资源超开检测"
+step "§3 网速测试（5 个全球大厂节点，约 25 秒）"
+rsect "§3 多节点入向带宽"
+rpt "目的：实测本机从全球大厂测速节点拉 100MB 文件的下行带宽。"
+rpt "  - 单节点限时 10 秒，宁可拉不完也不阻塞流程"
+rpt "  - 评级：🟢≥50MB/s  🟡10-50  🟠1-10  🔴<1 或超时"
+rpt "  - 节点选型原则：仅选 Cachefly/Linode/Hetzner 等大厂长期稳定 URL，"
+rpt "    不依赖任何对 curl 风控的 CDN（如 Cloudflare）或 CN 三网公开测速源（普遍失效）"
+
+# speed_one <显示名> <URL>
+speed_one() {
+    local name="$1" url="$2"
+    local result http_code speed_bps speed_mb speed_mb_int rate_kw
+    result=$(timeout 12 curl -fsSL --max-time 10 -o /dev/null \
+        -w "%{http_code} %{speed_download}" \
+        -A "Mozilla/5.0" "$url" 2>/dev/null)
+    http_code="${result%% *}"
+    speed_bps="${result##* }"
+    if [ -z "$result" ] || [ "$http_code" = "000" ] || [ -z "$speed_bps" ]; then
+        rkv "$name:" "$(rate bad "连接失败/超时")"
+        return
+    fi
+    if [[ "$http_code" =~ ^[45] ]]; then
+        rkv "$name:" "$(rate bad "HTTP $http_code 拒绝")"
+        return
+    fi
+    speed_mb_int=$(awk "BEGIN{printf \"%d\", ${speed_bps}/1048576}")
+    speed_mb=$(awk "BEGIN{printf \"%.1f\", ${speed_bps}/1048576}")
+    if   [ "$speed_mb_int" -ge 50 ]; then rate_kw="good"
+    elif [ "$speed_mb_int" -ge 10 ]; then rate_kw="fair"
+    elif [ "$speed_mb_int" -ge 1  ]; then rate_kw="warn"
+    else                                  rate_kw="bad"
+    fi
+    rkv "$name:" "$(rate $rate_kw "${speed_mb} MB/s  (HTTP $http_code)")"
+}
+
+rline
+rpt "全球大厂节点（5）:"
+speed_one "Cachefly Anycast"        "http://cachefly.cachefly.net/100mb.test"
+speed_one "Linode Fremont  (US-W)"  "http://speedtest.fremont.linode.com/100MB-fremont.bin"
+speed_one "Linode Newark   (US-E)"  "http://speedtest.newark.linode.com/100MB-newark.bin"
+speed_one "Hetzner Nuremberg (EU)"  "https://nbg1-speed.hetzner.com/100MB.bin"
+speed_one "Linode Singapore (AP)"   "http://speedtest.singapore.linode.com/100MB-singapore.bin"
+
+#######################################
+# §4 IP 类型与广播性判定
+#######################################
+step "§4 IP 类型与广播性判定（约 5 秒）"
+rsect "§4 IP 类型与广播性"
+rpt "目的：通过公开 API 判定本机出口 IP 是数据中心/原生/广播/代理。"
+rpt "  - 主源 ipapi.is（免 key，1000/天，小机房 ASN 识别最准）"
+rpt "  - 备援 ip-api.com（45/min，补充 ISP 文字）"
+rpt "  - 兜底 ASN 名称正则（常见 IDC 关键词）"
+
+# 常见 IDC/Hosting ASN 关键词正则（兜底判定）
+ASN_HOSTING_RE='NetLab|Vultr|Choopa|DigitalOcean|Linode|Akamai|OVH|Hetzner|Leaseweb|ColoCrossing|Amazon|AWS|Google|Microsoft|Azure|Tencent|Alibaba|Aliyun|Oracle|Hostwinds|BuyVM|RackNerd|Contabo|HostHatch|Misaka|Frantech|M247|netcup|Psychz|QuadraNet|DataPacket|Krypt|ReliableSite|GTHost|NetActuate|hostus|hosting|cloud|server|datacenter|VPS'
+
+S4_PUB4=$(timeout 5 curl -fsS -4 https://ip.sb 2>/dev/null \
+        || timeout 5 curl -fsS -4 https://ifconfig.me 2>/dev/null \
+        || timeout 5 curl -fsS -4 https://api.ipify.org 2>/dev/null)
+S4_PUB6=$(timeout 5 curl -fsS -6 https://ip.sb 2>/dev/null)
+
+ip_type_query() {
+    local ip="$1" label="$2"
+    [ -z "$ip" ] && return
+    rline
+    local _masked
+    if [[ "$ip" == *:* ]]; then _masked=$(mask_ip6 "$ip"); else _masked=$(mask_ip "$ip"); fi
+    rpt "${label}: ${_masked}"
+
+    local j1 country city asn_num asn_descr asn_type asn_domain
+    local is_dc is_anycast is_proxy is_vpn is_tor is_abuser abuser
+    local hit_hosting=0 hit_proxy=0
+    is_anycast="false"
+
+    # 主源 ipapi.is
+    j1=$(timeout 6 curl -fsS "https://api.ipapi.is/?q=${ip}" 2>/dev/null)
+    if [ -n "$j1" ] && echo "$j1" | grep -q '"ip"'; then
+        country=$(echo "$j1"   | jq -r '.location.country // ""')
+        city=$(echo "$j1"      | jq -r '.location.city    // ""')
+        asn_num=$(echo "$j1"   | jq -r '.asn.asn          // ""')
+        asn_descr=$(echo "$j1" | jq -r '.asn.descr        // ""')
+        asn_type=$(echo "$j1"  | jq -r '.asn.type         // ""')
+        asn_domain=$(echo "$j1"| jq -r '.asn.domain       // ""')
+        is_dc=$(echo "$j1"     | jq -r '.is_datacenter    // false')
+        is_anycast=$(echo "$j1"| jq -r '.is_anycast       // false')
+        is_proxy=$(echo "$j1"  | jq -r '.is_proxy         // false')
+        is_vpn=$(echo "$j1"    | jq -r '.is_vpn           // false')
+        is_tor=$(echo "$j1"    | jq -r '.is_tor           // false')
+        is_abuser=$(echo "$j1" | jq -r '.is_abuser        // false')
+        abuser=$(echo "$j1"    | jq -r '.asn.abuser_score // ""')
+
+        rkv "  注册国/城市:" "${country} / ${city}"
+        rkv "  ASN:"          "AS${asn_num} ${asn_descr}"
+        rkv "  ASN 类型:"     "${asn_type:-N/A}  (域: ${asn_domain:-N/A})"
+
+        local dc_reasons=""
+        [ "$asn_type" = "hosting" ]  && { hit_hosting=1; dc_reasons="${dc_reasons}ASN type=hosting; "; }
+        [ "$is_dc"    = "true" ]     && { hit_hosting=1; dc_reasons="${dc_reasons}ipapi.is is_datacenter; "; }
+        if echo "$asn_descr" | grep -Eiq "$ASN_HOSTING_RE"; then
+            hit_hosting=1; dc_reasons="${dc_reasons}ASN 名称命中; "
+        fi
+        [ "$is_proxy" = "true" ] && hit_proxy=1
+        [ "$is_vpn"   = "true" ] && hit_proxy=1
+        [ "$is_tor"   = "true" ] && hit_proxy=1
+
+        if [ $hit_hosting -eq 1 ]; then
+            rkv "  数据中心:"     "$(rate fair "是 (${dc_reasons%; })")"
+        else
+            rkv "  数据中心:"     "$(rate good "否")"
+        fi
+        if [ "$is_anycast" = "true" ]; then
+            rkv "  Anycast 广播:" "$(rate bad "是 (BGP 广播)")"
+        else
+            rkv "  Anycast 广播:" "$(rate good "否")"
+        fi
+        if [ $hit_proxy -eq 1 ]; then
+            local pr=""
+            [ "$is_proxy" = "true" ] && pr="${pr}proxy "
+            [ "$is_vpn"   = "true" ] && pr="${pr}vpn "
+            [ "$is_tor"   = "true" ] && pr="${pr}tor "
+            rkv "  代理/VPN/Tor:"  "$(rate bad "是 (${pr})")"
+        else
+            rkv "  代理/VPN/Tor:"  "$(rate good "否")"
+        fi
+        [ "$is_abuser" = "true" ] && rkv "  滥用账户:" "$(rate bad "是")"
+        rkv "  滥用分:"       "${abuser:-N/A}"
+    else
+        rkv "  ipapi.is:" "$(rate warn "查询失败")"
+    fi
+
+    # 备援 ip-api.com 补充 ISP 文字
+    local j2 ip_isp ip_org ip_hosting ip_mobile
+    j2=$(timeout 6 curl -fsS "http://ip-api.com/json/${ip}?fields=status,isp,org,mobile,hosting" 2>/dev/null)
+    if [ -n "$j2" ] && echo "$j2" | grep -q '"status":"success"'; then
+        ip_isp=$(echo "$j2"     | jq -r '.isp     // ""')
+        ip_org=$(echo "$j2"     | jq -r '.org     // ""')
+        ip_hosting=$(echo "$j2" | jq -r '.hosting // false')
+        ip_mobile=$(echo "$j2"  | jq -r '.mobile  // false')
+        rkv "  ISP:"            "${ip_isp}"
+        if [ -n "$ip_org" ] && [ "$ip_org" != "$ip_isp" ]; then rkv "  Org:" "${ip_org}"; fi
+        rkv "  ip-api hosting:" "$([ "$ip_hosting" = "true" ] && echo "true" || echo "false")"
+        rkv "  移动网络:"       "$([ "$ip_mobile" = "true" ] && echo "是" || echo "否")"
+        if [ "$ip_hosting" = "true" ]; then hit_hosting=1; fi
+    fi
+
+    # 综合判定
+    rline
+    local verdict
+    if [ $hit_proxy -eq 1 ]; then
+        verdict=$(rate bad  "代理/VPN/Tor (匿名 IP)")
+    elif [ "$is_anycast" = "true" ]; then
+        verdict=$(rate bad  "Anycast 广播 IP")
+    elif [ $hit_hosting -eq 1 ]; then
+        verdict=$(rate fair "数据中心 IP (常态 VPS)")
+    else
+        verdict=$(rate good "原生家宽/商业 IP")
+    fi
+    rkv "  综合判定:" "$verdict"
+}
+
+ip_type_query "$S4_PUB4" "IPv4 出口"
+[ -n "$S4_PUB6" ] && ip_type_query "$S4_PUB6" "IPv6 出口"
+
+#######################################
+# §5 超开金标准
+#######################################
+step "§5 超开检测（CPU steal 60s + KSM + Balloon + 内存带宽）"
+rsect "§5 资源超开检测"
 rpt "目的：判断 CPU、内存是否被宿主机超开。"
 rpt "  - CPU steal: 累计/实时被宿主抢走的 CPU 时间占比"
 rpt "  - KSM       : 宿主是否在做内存去重（开=可能超开）"
@@ -359,10 +525,10 @@ fi
 rkv "内存写带宽:" "$MW"
 
 #######################################
-# §4 邻居与宿主负载
+# §6 邻居与宿主负载
 #######################################
-step "§4 邻居与宿主负载"
-rsect "§4 邻居与宿主负载"
+step "§6 邻居与宿主负载"
+rsect "§6 邻居与宿主负载"
 rpt "目的：从网卡丢包、OOM 历史、同 C 段邻居存活率判断宿主机繁忙度。"
 
 # 网卡丢包率
@@ -412,10 +578,10 @@ if [ -n "$MY_IP" ]; then
 fi
 
 #######################################
-# §5 嵌套虚拟化
+# §7 嵌套虚拟化
 #######################################
-step "§5 嵌套虚拟化能力"
-rsect "§5 嵌套虚拟化"
+step "§7 嵌套虚拟化能力"
+rsect "§7 嵌套虚拟化"
 rpt "目的：判断本机能否再开 KVM 虚拟机（vmx/svm 暴露 + /dev/kvm 可用）。"
 
 VMX_CNT=$(grep -cE '(vmx|svm)' /proc/cpuinfo)
@@ -429,10 +595,10 @@ fi
 rkv "嵌套能力:" "$NEST_RATE"
 
 #######################################
-# §6 综合等级
+# §8 综合等级
 #######################################
-step "§6 综合等级判定"
-rsect "§6 综合等级"
+step "§8 综合等级判定"
+rsect "§8 综合等级"
 rpt "评级标准:"
 rpt "  L4 物理机    : 无虚拟化层"
 rpt "  L3 专属母机  : KVM + 无超开 + 嵌套可用"
@@ -465,10 +631,10 @@ rpt "  Balloon:   $([ -n "$BALLOON_PCI" ] && echo 设备存在 || echo 无)"
 rpt "  嵌套 KVM:  $([ "$VMX_CNT" -gt 0 ] && [ -e /dev/kvm ] && echo 可用 || echo 不可用)"
 
 #######################################
-# §7 三网回程线路
+# §9 三网回程线路
 #######################################
-step "§7 三网回程探测（约 90 秒）"
-rsect "§7 三网回程线路"
+step "§9 三网回程探测（约 90 秒）"
+rsect "§9 三网回程线路"
 rpt "目的：识别到中国电信/联通/移动三网的去程经过哪些 AS（CN2/9929/CMIN2 等）。"
 rpt "目标 IP 为各运营商骨干测速节点。"
 
@@ -648,10 +814,10 @@ rline
 echo "$ROUTE_TBL" | awk -F'|' 'NF>=5{printf "%-10s %-22s %-12s %-12s %s\n", $1, $2, $3, $4, $5}' >> "$RPT_FILE"
 
 #######################################
-# §8 磁盘性能
+# §10 磁盘性能
 #######################################
-step "§8 磁盘 fio（4 维 × 5s × 读写）"
-rsect "§8 磁盘性能"
+step "§10 磁盘 fio（4 维 × 5s × 读写）"
+rsect "§10 磁盘性能"
 rpt "目的：测量随机/顺序读写吞吐与 IOPS。"
 
 run_fio() {
@@ -707,10 +873,10 @@ else
 fi
 
 #######################################
-# §9 网络身份与解锁
+# §11 网络身份与解锁
 #######################################
-step "§9 IP 身份 / 黑名单 / AI 与流媒体解锁"
-rsect "§9 网络身份"
+step "§11 IP 身份 / 黑名单 / AI 与流媒体解锁"
+rsect "§11 网络身份"
 rpt "目的：核查公网 IP 归属、25 端口、反向 DNS、Spamhaus 黑名单。"
 
 PUB4=$(timeout 5 curl -fsS -4 ip.sb 2>/dev/null || timeout 5 curl -fsS -4 ifconfig.me 2>/dev/null)
@@ -749,7 +915,7 @@ if [ -n "$PUB4" ]; then
 fi
 
 # 解锁探测
-rsect "§10 流媒体与 AI 平台可达性"
+rsect "§12 流媒体与 AI 平台可达性"
 rpt "目的：HTTP 状态码 + 标志关键字快速判断常见服务能否访问。"
 rpt "（200=正常返回，403/451=区域阻断，fail=连接失败；不等同于完整解锁）"
 
@@ -781,7 +947,6 @@ probe "Perplexity"         "https://www.perplexity.ai/cdn-cgi/trace"
 probe "Copilot (Microsoft)" "https://copilot.microsoft.com/cdn-cgi/trace"
 probe "Mistral"            "https://chat.mistral.ai/cdn-cgi/trace"
 probe "Grok (xAI)"         "https://grok.com/cdn-cgi/trace"
-probe "DeepSeek"           "https://chat.deepseek.com/"
 probe "Kimi (Moonshot)"    "https://kimi.moonshot.cn/"
 
 rline
@@ -795,10 +960,10 @@ probe "HBO Max"      "https://www.max.com/"
 probe "Twitch"       "https://www.twitch.tv/"
 
 #######################################
-# §11 中国多地三网入境延迟（globalping API）
+# §13 中国多地三网入境延迟（globalping API）
 #######################################
-step "§11 globalping 多省三网入境延迟（约 15 秒）"
-rsect "§11 中国多地三网入境延迟（globalping）"
+step "§13 globalping 多省三网入境延迟（约 15 秒）"
+rsect "§13 中国多地三网入境延迟（globalping）"
 rpt "目的：从中国大陆各省 + 三网真实节点 ping 本机，模拟国内用户访问体验。"
 rpt "数据源：globalping.io 公开探针（无需认证，250 次/小时配额）"
 
@@ -1047,7 +1212,7 @@ cat >> "$HTML_FILE" <<'HTML_TAIL'
     if (line === '') return '';
     if (/^[#=]{8,}$/.test(line)) return '<span class="ln-sep">' + escapeHtml(line) + '</span>';
     if (/^-{8,}$/.test(line))    return '<span class="ln-sep">' + escapeHtml(line) + '</span>';
-    if (/^§\d/.test(line) || /^\s+VPS Quality Check Report/.test(line)) {
+    if (/^§\d+/.test(line) || /^\s+VPS Quality Check Report/.test(line)) {
       return '<span class="ln-section">' + escapeHtml(line) + '</span>';
     }
     var cls = null;

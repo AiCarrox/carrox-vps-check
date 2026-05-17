@@ -5,25 +5,27 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Shell](https://img.shields.io/badge/shell-bash-1f425f.svg)](https://www.gnu.org/software/bash/)
 [![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)]()
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](CHANGELOG.md)
 
 ---
 
 ## 这个脚本能做什么
 
-一次执行,得到关于这台 VPS 的 12 个维度评估,自动落盘成两份文件(完整日志 + 整洁结论):
+一次执行,得到关于这台 VPS 的 14 个维度评估,自动落盘成两份文件(完整日志 + 整洁结论):
 
 - **§1 虚拟化指纹** — 物理机 / KVM / Xen / VMware / 容器(LXC/OpenVZ),含 BIOS、厂商、网卡驱动
 - **§2 系统硬件** — OS、CPU 型号、指令集(vmx/svm/aes/avx2/ept/npt)、内存、磁盘、网卡速率、TCP 拥塞控制
-- **§3 超开检测** — 累计 + 实时 60s CPU steal、KSM 去重、内存气球、sysbench 内存带宽
-- **§4 宿主负载** — 网卡丢包、OOM 历史、同 C 段邻居存活率
-- **§5 嵌套虚拟化** — 能否再开一层 KVM 虚拟机
-- **§6 综合等级 L0–L4** — 自动评分(L4 物理 / L3 专属母机 / L2 低密 / L1 普通共享 / L0 容器)
-- **§7 三网回程** — 9 个测速节点的 mtr,hop ASN 自动反查并打 **CN2(GIA) / 9929 / CMIN2 / Lumen / NTT** 等线路标签
-- **§8 fio 磁盘** — 4K Q1 / 4K Q32 / 1M Q8 × 读写共 6 维,IOPS + BW 双指标
-- **§9 IP 身份** — 公网 IPv4/IPv6 / ASN / 反向 DNS / 25 端口出站 / Spamhaus 黑名单
-- **§10 解锁探测** — ChatGPT / Claude / Gemini / Perplexity / Copilot / Mistral / Grok / DeepSeek / Kimi / Netflix / Disney+ / YouTube / TikTok / Spotify / HBO Max / Twitch
-- **§11 国内入境延迟** — 通过 [globalping.io](https://globalping.io) 公开探针从中国大陆各省三网真实节点 ping 本机
+- **§3 网速测试** — 5 个全球大厂稳定节点(Cachefly Anycast / Linode Fremont / Linode Newark / Hetzner Nuremberg / Linode Singapore)的 100MB 单 TCP 下行实测
+- **§4 IP 类型与广播性** — 三层判定(ipapi.is 金标准 + ip-api.com 补充 + ASN 名称兜底),自动归类原生家宽 / 数据中心 / Anycast 广播 / 代理 VPN
+- **§5 超开检测** — 累计 + 实时 60s CPU steal、KSM 去重、内存气球、sysbench 内存带宽
+- **§6 宿主负载** — 网卡丢包、OOM 历史、同 C 段邻居存活率
+- **§7 嵌套虚拟化** — 能否再开一层 KVM 虚拟机
+- **§8 综合等级 L0–L4** — 自动评分(L4 物理 / L3 专属母机 / L2 低密 / L1 普通共享 / L0 容器)
+- **§9 三网回程** — 9 个测速节点的 mtr,hop ASN 自动反查并打 **CN2(GIA) / 9929 / CMIN2 / Lumen / NTT** 等线路标签
+- **§10 fio 磁盘** — 4K Q1 / 4K Q32 / 1M Q8 × 读写共 6 维,IOPS + BW 双指标
+- **§11 IP 身份** — 公网 IPv4/IPv6 / ASN / 反向 DNS / 25 端口出站 / Spamhaus 黑名单
+- **§12 解锁探测** — ChatGPT / Claude / Gemini / Perplexity / Copilot / Mistral / Grok / Kimi / Netflix / Disney+ / YouTube / TikTok / Spotify / HBO Max / Twitch
+- **§13 国内入境延迟** — 通过 [globalping.io](https://globalping.io) 公开探针从中国大陆各省三网真实节点 ping 本机
 
 每个指标都标注 5 级评级:🟢 良好/正常 / 🟡 一般 / 🟠 偏弱 / 🔴 较差 / ℹ️ 信息。
 
@@ -41,32 +43,34 @@
 </details>
 
 <details>
-<summary>📷 §3 资源超开 + §4 邻居宿主 + §5 嵌套虚拟化 + §6 综合等级</summary>
+<summary>📷 §5 资源超开 + §6 邻居宿主 + §7 嵌套虚拟化 + §8 综合等级</summary>
 
-![§3-§6](./docs/screenshots/github_2.png)
-
-</details>
-
-<details>
-<summary>📷 §7 三网回程 + §8 fio 磁盘 + §9 网络身份</summary>
-
-![§7-§9](./docs/screenshots/github_3.png)
+![§5-§8](./docs/screenshots/github_2.png)
 
 </details>
 
 <details>
-<summary>📷 §10 AI 平台 + 流媒体解锁</summary>
+<summary>📷 §9 三网回程 + §10 fio 磁盘 + §11 网络身份</summary>
 
-![§10](./docs/screenshots/github_4.png)
+![§9-§11](./docs/screenshots/github_3.png)
 
 </details>
 
 <details>
-<summary>📷 §11 globalping CN 多省三网入境延迟</summary>
+<summary>📷 §12 AI 平台 + 流媒体解锁</summary>
 
-![§11](./docs/screenshots/github_5.png)
+![§12](./docs/screenshots/github_4.png)
 
 </details>
+
+<details>
+<summary>📷 §13 globalping CN 多省三网入境延迟</summary>
+
+![§13](./docs/screenshots/github_5.png)
+
+</details>
+
+> 注：v1.1.0 新增的 §3 网速测试 / §4 IP 类型截图待补，预计随下一次提交一并更新。
 
 ---
 
